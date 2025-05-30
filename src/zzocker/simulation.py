@@ -3,6 +3,8 @@ from . import state
 from . import physics
 from . import player_ai
 from . import actions # Assuming actions structure is defined here
+# Potentially need imports for specific event data structures if defined elsewhere
+# from . import events # Example: if there's an events module
 
 class SimulationManager:
     """
@@ -29,6 +31,62 @@ class SimulationManager:
         # self.team2_ai.initialize(self.game_state, team_id=2) # Example
 
 
+    def step(self) -> bool:
+        """
+        Performs one step of the simulation.
+
+        Returns:
+            True if the simulation is still running, False otherwise.
+        """
+        if not self._is_running or self.game_state.is_game_over():
+            return False
+
+        # Advance time
+        self.game_state.current_time += self.timestep
+
+        # 3. Get the current state (already self.game_state)
+
+        # 4. Call AI logic to determine actions
+        try:
+            # AIs receive the current state and return actions for their players
+            # Actions should be a dictionary mapping player_id to action data (using actions.py structure)
+            team1_actions = self.team1_ai.get_actions(self.game_state, team_id=1)
+            team2_actions = self.team2_ai.get_actions(self.game_state, team_id=2)
+        except Exception as e:
+            print(f"Error getting AI actions: {e}")
+            self.stop()
+            return False
+
+        # Combine actions from both teams
+        all_actions = {}
+        all_actions.update(team1_actions)
+        all_actions.update(team2_actions)
+
+        # Optional: Validate actions against allowed actions for the state/player
+
+        # 5. Pass state and actions to the physics engine to calculate the next state
+        try:
+            # Assuming physics modifies game_state in place
+            physics.update_physics(self.game_state, all_actions, self.timestep)
+        except Exception as e:
+            print(f"Error during physics update: {e}")
+            self.stop()
+            return False
+
+        # 6. Check and handle game events (goals, fouls, passes, shots, etc.)
+        # Events might change the game state significantly (e.g., stop play, reset positions)
+        try:
+            self._check_and_handle_events()
+        except Exception as e:
+            print(f"Error during event handling: {e}")
+            self.stop()
+            return False
+
+        # 7. Check for game over conditions (handled by game_state.is_game_over())
+
+        return self._is_running and not self.game_state.is_game_over()
+
+
     def run(self):
         """
         Runs the main simulation loop until the game is over or stopped.
@@ -39,100 +97,137 @@ class SimulationManager:
         # Optional: Add initial state setup/broadcast if needed
         # self.game_state.setup_initial_state() # Example
 
-        # 2. Iterate through the game time
-        while self._is_running and not self.game_state.is_game_over():
-            # Advance time
-            self.game_state.current_time += self.timestep
-
-            # 3. Get the current state
-            current_state = self.game_state
-
-            # 4. Call AI logic to determine actions
-            # AIs receive the current state and return actions for their players
-            # Actions should be a dictionary mapping player_id to action data (using actions.py structure)
-            try:
-                team1_actions = self.team1_ai.get_actions(current_state, team_id=1)
-                team2_actions = self.team2_ai.get_actions(current_state, team_id=2)
-            except Exception as e:
-                print(f"Error getting AI actions: {e}")
-                self.stop() # Stop simulation on AI error
-                break
-
-            # Combine actions from both teams
-            all_actions = {}
-            all_actions.update(team1_actions)
-            all_actions.update(team2_actions)
-
-            # Optional: Validate actions against allowed actions for the state/player
-
-            # 5. Pass state and actions to the physics engine to calculate the next state
-            # The physics module updates positions, velocities, etc., based on current state, actions, and timestep
-            try:
-                # Assuming physics modifies game_state in place
-                physics.update_physics(self.game_state, all_actions, self.timestep)
-            except Exception as e:
-                print(f"Error during physics update: {e}")
-                self.stop() # Stop simulation on physics error
-                break
-
-            # Optional: Add visualization or logging steps here
-            # print(f"Time: {self.game_state.current_time:.2f}") # Example logging
-
-            # Optional: Add a small sleep to control simulation speed if needed for visualization
-            # time.sleep(self.timestep)
+        while self.step():
+            # The main logic for each frame is in the step() method.
+            # Add any necessary delays or visualization updates here if needed.
+            # Example: time.sleep(self.timestep) # If running slower than real-time
+            pass
 
         print("Simulation finished.")
         if self.game_state.is_game_over():
-            print(f"Game Over! Winning Team: {self.game_state.get_winning_team()}") # Assuming such a method exists
+            print(f"Game Over! Result: {self.game_state.score}") # Example
+
 
     def stop(self):
         """
         Stops the simulation loop.
         """
         self._is_running = False
-        print("Simulation stopping...")
+        print("Simulation stopped.")
 
-# Example usage (assuming dummy AI classes and state/physics modules exist)
-if __name__ == "__main__":
-    # Create dummy AI classes for demonstration
-    class DummyAI(player_ai.BaseAI):
-        def get_actions(self, game_state: state.GameState, team_id: int) -> dict:
-            # Return empty actions for simplicity
-            return {}
+    def _check_and_handle_events(self):
+        """
+        Checks for and handles game events based on the current state.
+        Modifies game_state accordingly.
+        """
+        # The order of checks might be important depending on rule interactions
+        # For example, a tackle might prevent a pass/shot from happening.
+        # A goal check should probably be last as it might end the half/game.
 
-    # Create dummy state and physics modules/classes for demonstration
-    # These would need actual implementation in state.py and physics.py
-    class DummyGameState:
-        def __init__(self):
-            self.current_time = 0.0
-            self._is_over = False
+        # Check for tackles/interceptions first as they affect possession
+        self._handle_tackle()
 
-        def is_game_over(self):
-            # Simulate game ending after 10 seconds
-            if self.current_time >= 10.0:
-                self._is_over = True
-            return self._is_over
+        # Check for passes (successful or unsuccessful)
+        # This might depend on the outcome of tackles
+        self._handle_pass()
 
-        def get_winning_team(self):
-             return "None (Time Limit)" # Example
+        # Check for shots
+        # This might depend on possession and player action
+        self._handle_shot()
 
-    class DummyPhysics:
-        @staticmethod
-        def update_physics(game_state: DummyGameState, actions: dict, timestep: float):
-            # Physics does nothing in this dummy example
-            pass
+        # Check for offsides (might depend on pass completion and player position)
+        self._check_offside()
 
-    # Replace actual imports with dummy ones for this example block
-    state = DummyGameState()
-    physics = DummyPhysics()
-    # actions is not used in the dummy physics, but would be needed in a real one
+        # Check for goals (depends on shot completion and ball position)
+        self._check_goal()
 
-    # Initialize AIs
-    team1_ai_instance = DummyAI()
-    team2_ai_instance = DummyAI()
+        # Add other events like fouls (outside of tackles), out of bounds, etc. later
+        # self._check_out_of_bounds()
+        # self._check_fouls() # Fouls not related to tackles
 
-    # Initialize Simulation Manager
-    sim_manager = SimulationManager(team1_ai_instance, team2_ai_instance, timestep=1/60)
+    # Placeholder methods for specific event handling.
+    # These methods will need to implement the actual game logic based on state and physics results.
+    # They should modify self.game_state when an event occurs.
 
-    # Run the simulation
-    sim_manager.run()
+    def _handle_pass(self):
+        """
+        Checks if a pass action resulted in a successful pass or turnover.
+        Updates possession and ball state.
+        This is a placeholder; actual implementation needs game logic.
+        """
+        # Example logic considerations:
+        # - Was a player attempting a 'pass' action?
+        # - Where was the ball relative to the player?
+        # - What was the ball's trajectory after the physics update?
+        # - Did the ball reach a teammate? An opponent? Go out of bounds?
+        # - Update self.game_state.ball.possession based on outcome.
+        # - If successful, potentially record assist.
+        # - If intercepted, possession changes to the intercepting team.
+        # - If out of bounds, handle throw-in/goal kick/corner.
+        pass # TODO: Implement pass handling logic
+
+    def _handle_shot(self):
+        """
+        Checks if a shot action resulted in a goal, save, or miss.
+        Updates score, ball state, and restarts play if needed.
+        This is a placeholder; actual implementation needs game logic.
+        """
+        # Example logic considerations:
+        # - Was a player attempting a 'shot' action?
+        # - What was the ball's trajectory after the physics update?
+        # - Did the ball enter the goal area?
+        # - Did the goalkeeper intercept it?
+        # - If goal, call _check_goal (or include goal logic here).
+        # - If saved, possession might change to the goalkeeper/team.
+        # - If miss, check if it went out of bounds (goal kick/corner).
+        # - Update self.game_state.ball.possession if needed.
+        # - Update self.game_state.state if play stops (e.g., CORNER_KICK, GOAL_KICK).
+        pass # TODO: Implement shot handling logic
+
+    def _handle_tackle(self):
+        """
+        Checks for tackle events and their outcome (successful tackle, foul).
+        Updates possession, player state, and potentially applies penalties.
+        This is a placeholder; actual implementation needs game logic.
+        """
+        # Example logic considerations:
+        # - Did players from opposing teams collide or come into very close proximity?
+        # - Was one player attempting a 'tackle' action?
+        # - Was the ball dislodged from the player with possession?
+        # - Was the tackle fair (e.g., got the ball)?
+        # - If successful tackle: Change self.game_state.ball.possession.
+        # - If foul:
+        #   - Stop play.
+        #   - Determine foul type and location.
+        #   - Potentially issue card (yellow/red).
+        #   - Set up free kick or penalty kick.
+        #   - Update self.game_state.state (e.g., FREE_KICK, PENALTY_KICK).
+        #   - Record foul/card in player/game state.
+        pass # TODO: Implement tackle handling logic
+
+    def _check_offside(self):
+        """
+        Checks for offside violations.
+        Stops play and sets up indirect free kick if offside detected.
+        This is a placeholder; actual implementation needs game logic.
+        """
+        # Example logic considerations:
+        # - When is offside checked? Typically at the moment a teammate passes the ball.
+        # - Needs access to the state *at the moment the pass was initiated*. This is tricky with a fixed timestep.
+        # - Identify potential offside players (attacking players in opponent half).
+        # - Compare their position to the ball and the second-last defender of the opponent team *at the moment the ball was kicked*.
+        # - If offside and the player interferes with play:
+        #   - Stop play.
+        #   - Set up indirect free kick for the opposing team at the location of the offside player.
+        #   - Update self.game_state.state (e.g., INDIRECT_FREE_KICK).
+        pass # TODO: Implement offside checking logic
+
+    def _check_goal(self):
+        """
+        Specifically checks if the ball has crossed the goal line and resulted in a goal.
+        This is a placeholder; actual implementation needs game logic.
+        """
+        # Example logic considerations:
+        # - Check if the ball's position in the last timestep crossed the goal line.
+        # - Ensure it was between the posts and under the bar.
+        # - Ensure the ball *fully* crossed the line.

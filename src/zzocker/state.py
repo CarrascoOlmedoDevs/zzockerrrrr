@@ -66,28 +66,114 @@ class Ball:
     def __init__(self,
                  position: Position,
                  velocity: Velocity,
-                 spin: typing.Optional[Vector3D] = None,
-                 friction: float = 0.01,
-                 mass: float = 0.43, # Added mass with default value (FIFA standard approx)
-                 radius: float = 0.11): # Added radius with default value (FIFA standard approx)
+                 mass: float,
+                 radius: float):
         """
-        Initializes a Ball object.
+        Generates a Ball object.
 
         Args:
             position: The current position of the ball (2D or 3D vector).
             velocity: The current velocity of the ball (2D or 3D vector).
-            spin: The current spin of the ball (3D vector, optional).
-            friction: A factor representing air resistance and surface friction effects.
             mass: The mass of the ball (for physics calculations).
             radius: The radius of the ball (for collision detection).
         """
         self.position: Position = position
         self.velocity: Velocity = velocity
-        self.spin: typing.Optional[Vector3D] = spin
-        self.friction: float = friction
         self.mass: float = mass
         self.radius: float = radius
 
-# Assuming there might be other classes or content here based on "contenido truncado"
-# Add any other classes (like Goal, Field, GameState) or definitions below
-# ... (rest of the file content) ...
+# Define type aliases for collections within GameState
+PlayersList = typing.List[Player]
+# Example FieldDimensions: {'length': 105.0, 'width': 68.0, 'goal_size': (7.32, 2.44), 'center_circle_radius': 9.15}
+FieldDimensions = typing.Dict[str, typing.Union[float, typing.Tuple[float, float]]]
+# Example TeamSides: {'home': 'left', 'away': 'right'}
+TeamSides = typing.Dict[str, str]
+
+class GameState:
+    """
+    Represents the complete state of the football simulation at a given moment.
+    """
+    def __init__(self,
+                 players: PlayersList,
+                 ball: Ball,
+                 game_time: float = 0.0, # Current time elapsed in the game
+                 score: typing.Tuple[int, int] = (0, 0), # Current score (home, away)
+                 ball_possession_player_id: typing.Optional[int] = None, # ID of player possessing the ball, or None
+                 last_ball_touch_player_id: typing.Optional[int] = None, # ID of player who last touched the ball, or None
+                 field_dimensions: typing.Optional[FieldDimensions] = None, # Dimensions of the field
+                 team_sides: typing.Optional[TeamSides] = None # Sides of the field for each team
+                ):
+        """
+        Generates a GameState object.
+
+        Args:
+            players: A list of all Player objects in the game.
+            ball: The Ball object.
+            game_time: The current time elapsed in the game (e.g., in seconds).
+            score: The current score of the game, as a tuple (home_score, away_score).
+            ball_possession_player_id: The ID of the player currently deemed to have possession of the ball, or None.
+            last_ball_touch_player_id: The ID of the player who last touched the ball, or None.
+            field_dimensions: Dictionary defining the dimensions of the field (e.g., length, width, goal size).
+                              Required for context and calculations like offside. Can be None if not initialized yet.
+            team_sides: Dictionary mapping team names ('home', 'away') to their side of the field ('left', 'right').
+                        Required for context and calculations like offside. Can be None if not initialized yet.
+        """
+        self.players: PlayersList = players
+        self.ball: Ball = ball
+        self.game_time: float = game_time
+        self.score: typing.Tuple[int, int] = score
+        self.ball_possession_player_id: typing.Optional[int] = ball_possession_player_id
+        self.last_ball_touch_player_id: typing.Optional[int] = last_ball_touch_player_id
+        self.field_dimensions: typing.Optional[FieldDimensions] = field_dimensions
+        self.team_sides: typing.Optional[TeamSides] = team_sides
+
+    def get_player_by_id(self, player_id: int) -> typing.Optional[Player]:
+        """
+        Finds and returns a player by their ID.
+
+        Args:
+            player_id: The unique identifier of the player to find.
+
+        Returns:
+            The Player object if found, otherwise None.
+        """
+        for player in self.players:
+            if player.id == player_id:
+                return player
+        return None
+
+    def get_players_by_team(self, team_name: str) -> PlayersList:
+        """
+        Finds and returns all players belonging to a specific team.
+
+        Args:
+            team_name: The name of the team ('home' or 'away').
+
+        Returns:
+            A list of Player objects belonging to the specified team.
+        """
+        return [player for player in self.players if player.team == team_name]
+
+    def get_player_with_possession(self) -> typing.Optional[Player]:
+        """
+        Returns the Player object currently in possession of the ball.
+
+        Returns:
+            The Player object if a player has possession, otherwise None.
+        """
+        if self.ball_possession_player_id is not None:
+            return self.get_player_by_id(self.ball_possession_player_id)
+        return None
+
+    def get_player_who_last_touched_ball(self) -> typing.Optional[Player]:
+        """
+        Returns the Player object who last touched the ball.
+
+        Returns:
+            The Player object if a player last touched the ball, otherwise None.
+        """
+        if self.last_ball_touch_player_id is not None:
+            return self.get_player_by_id(self.last_ball_touch_player_id)
+        return None
+
+    # Add other utility methods as needed, e.g., for calculating distances, offside, etc.
