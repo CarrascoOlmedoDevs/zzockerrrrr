@@ -20,7 +20,9 @@ class Player:
                  orientation: Orientation,
                  is_controlled_by_ai: bool,
                  stamina: float,
-                 attributes: Attributes):
+                 attributes: Attributes,
+                 mass: float, # Added mass
+                 radius: float): # Added radius
         """
         Initializes a Player object.
 
@@ -33,6 +35,8 @@ class Player:
             is_controlled_by_ai: True if the player is controlled by AI, False if human/other.
             stamina: The current stamina level (e.g., 0.0 to 1.0).
             attributes: Dictionary of player attributes (e.g., {'speed': 0.8, 'shooting': 0.7}).
+            mass: The mass of the player (for physics calculations).
+            radius: The radius of the player (for collision detection).
         """
         self.id: int = id
         self.team: str = team
@@ -42,6 +46,8 @@ class Player:
         self.is_controlled_by_ai: bool = is_controlled_by_ai
         self.stamina: float = stamina
         self.attributes: Attributes = attributes
+        self.mass: float = mass # Added mass attribute
+        self.radius: float = radius # Added radius attribute
 
 class Ball:
     """
@@ -51,7 +57,9 @@ class Ball:
                  position: Position,
                  velocity: Velocity,
                  spin: typing.Optional[Vector3D] = None,
-                 friction: float = 0.01):
+                 friction: float = 0.01,
+                 mass: float = 0.43, # Added mass with default value (FIFA standard approx)
+                 radius: float = 0.11): # Added radius with default value (FIFA standard approx)
         """
         Initializes a Ball object.
 
@@ -60,11 +68,15 @@ class Ball:
             velocity: The current velocity of the ball (2D or 3D vector).
             spin: The current spin of the ball (3D vector, optional).
             friction: A factor representing air resistance and surface friction effects.
+            mass: The mass of the ball (for physics calculations).
+            radius: The radius of the ball (for collision detection).
         """
         self.position: Position = position
         self.velocity: Velocity = velocity
         self.spin: typing.Optional[Vector3D] = spin
         self.friction: float = friction # Combined friction/drag factor
+        self.mass: float = mass # Added mass attribute
+        self.radius: float = radius # Added radius attribute
 
 class Field:
     """
@@ -73,94 +85,71 @@ class Field:
     def __init__(self,
                  dimensions: typing.Tuple[float, float], # (width, height)
                  goal_positions: typing.List[Position], # Positions of the centers of the goals
-                 boundaries: typing.Any, # Could be a Rect object, list of points, etc.
-                 surface_friction: float = 0.05):
+                 boundaries: typing.Any): # Could be a Rect object, list of points, etc.
         """
         Initializes a Field object.
 
         Args:
-            dimensions: The size of the playable area (width, height).
-            goal_positions: A list containing the positions of the goals.
-            boundaries: Definition of the field limits (e.g., a rectangle object).
-            surface_friction: A factor representing the friction of the grass surface.
+            dimensions: The width and height of the playing area.
+            goal_positions: A list of positions for the goals.
+            boundaries: Representation of the field boundaries.
         """
         self.dimensions: typing.Tuple[float, float] = dimensions
         self.goal_positions: typing.List[Position] = goal_positions
-        self.boundaries: typing.Any = boundaries # Placeholder for a more specific type if needed
-        self.surface_friction: float = surface_friction
+        self.boundaries: typing.Any = boundaries # This type might need refinement later
 
-class TimeState:
+class GameState:
     """
-    Represents the current time state of the match.
-    """
-    def __init__(self,
-                 current_time_seconds: float = 0.0,
-                 half_length_seconds: float = 2700.0, # 45 minutes
-                 is_half_time: bool = False,
-                 is_full_time: bool = False):
-        """
-        Initializes a TimeState object.
-
-        Args:
-            current_time_seconds: The elapsed time in the current half/period.
-            half_length_seconds: The standard duration of a half in seconds.
-            is_half_time: True if the match is currently at half-time break.
-            is_full_time: True if the match has concluded.
-        """
-        self.current_time_seconds: float = current_time_seconds
-        self.half_length_seconds: float = half_length_seconds
-        self.is_half_time: bool = is_half_time
-        self.is_full_time: bool = is_full_time
-
-class ScoreState:
-    """
-    Represents the current score of the match.
+    Represents the complete state of the football simulation at a given moment.
     """
     def __init__(self,
-                 home_score: int = 0,
-                 away_score: int = 0):
+                 players: typing.List[Player],
+                 ball: Ball,
+                 field: Field,
+                 score: typing.Dict[str, int], # {'home': 0, 'away': 0}
+                 time: float, # Current time in the match (e.g., seconds)
+                 is_game_over: bool = False):
         """
-        Initializes a ScoreState object.
+        Initializes a GameState object.
 
         Args:
-            home_score: The current score for the home team.
-            away_score: The current score for the away team.
+            players: A list of all players in the game.
+            ball: The ball object.
+            field: The field object.
+            score: Dictionary representing the current score for each team.
+            time: The current time in the match.
+            is_game_over: Flag indicating if the game has ended.
         """
-        self.home_score: int = home_score
-        self.away_score: int = away_score
+        self.players: typing.List[Player] = players
+        self.ball: Ball = ball
+        self.field: Field = field
+        self.score: typing.Dict[str, int] = score
+        self.time: float = time
+        self.is_game_over: bool = is_game_over
 
-# Example usage (optional, for demonstration, not part of the final file content)
-if __name__ == '__main__':
-    # Example Player
-    player1 = Player(
-        id=1,
-        team='home',
-        position=(0.0, 10.0),
-        velocity=(0.0, 0.0),
-        orientation=90.0, # Degrees
-        is_controlled_by_ai=True,
-        stamina=1.0,
-        attributes={'speed': 0.85, 'shooting': 0.7, 'passing': 0.75}
-    )
-    print(f"Player 1: ID={player1.id}, Team={player1.team}, Pos={player1.position}, Stamina={player1.stamina}")
+    def get_player_by_id(self, player_id: int) -> typing.Optional[Player]:
+        """
+        Retrieves a player by their unique ID.
 
-    # Example Ball
-    ball = Ball(position=(0.0, 0.0), velocity=(0.0, 0.0), friction=0.005)
-    print(f"Ball: Pos={ball.position}, Vel={ball.velocity}")
+        Args:
+            player_id: The ID of the player to retrieve.
 
-    # Example Field
-    field = Field(
-        dimensions=(105.0, 68.0), # Standard FIFA dimensions
-        goal_positions=[(-52.5, 0.0), (52.5, 0.0)], # Assuming center of field is (0,0)
-        boundaries=(-52.5, -34.0, 52.5, 34.0), # (min_x, min_y, max_x, max_y)
-        surface_friction=0.06
-    )
-    print(f"Field: Dimensions={field.dimensions}, Goal Positions={field.goal_positions}")
+        Returns:
+            The Player object if found, otherwise None.
+        """
+        for player in self.players:
+            if player.id == player_id:
+                return player
+        return None
 
-    # Example TimeState
-    time_state = TimeState(current_time_seconds=1500.0)
-    print(f"Time: Current={time_state.current_time_seconds}s, Half Length={time_state.half_length_seconds}s")
+    def get_players_by_team(self, team_name: str) -> typing.List[Player]:
+        """
+        Retrieves all players belonging to a specific team.
 
-    # Example ScoreState
-    score_state = ScoreState(home_score=2, away_score=1)
-    print(f"Score: Home={score_state.home_score}, Away={score_state.away_score}")
+        Args:
+            team_name: The name of the team ('home' or 'away').
+
+        Returns:
+            A list of Player objects belonging to the specified team.
+        """
+        return [player for player in self.players if player.team == team_name]
