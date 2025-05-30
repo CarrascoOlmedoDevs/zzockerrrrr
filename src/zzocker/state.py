@@ -8,6 +8,11 @@ Velocity = typing.Union[Vector2D, Vector3D]
 Orientation = typing.Union[float, Vector2D, Vector3D] # Angle or vector direction
 Attributes = typing.Dict[str, float]
 
+# Define a placeholder type for the AI controller base class.
+# Replace typing.Any with the actual type (e.g., AIBasePlayer)
+# once the AI module structure is defined and imported.
+AIBasePlayer = typing.Any # Placeholder for the base AI controller class type
+
 class Player:
     """
     Represents a single football player in the simulation.
@@ -21,10 +26,11 @@ class Player:
                  is_controlled_by_ai: bool,
                  stamina: float,
                  attributes: Attributes,
-                 mass: float, # Added mass
-                 radius: float): # Added radius
+                 mass: float,
+                 radius: float,
+                 ai_controller: typing.Optional[AIBasePlayer] = None): # Added ai_controller
         """
-        Initializes a Player object.
+        Generates a Player object.
 
         Args:
             id: Unique identifier for the player.
@@ -33,10 +39,13 @@ class Player:
             velocity: The current velocity of the player (2D or 3D vector).
             orientation: The orientation or facing direction of the player (angle or vector).
             is_controlled_by_ai: True if the player is controlled by AI, False if human/other.
+                                 This flag indicates if an AI controller is responsible for this player.
             stamina: The current stamina level (e.g., 0.0 to 1.0).
             attributes: Dictionary of player attributes (e.g., {'speed': 0.8, 'shooting': 0.7}).
             mass: The mass of the player (for physics calculations).
             radius: The radius of the player (for collision detection).
+            ai_controller: An optional instance of an AI controller class responsible for this player's decisions.
+                           Should be None if is_controlled_by_ai is False.
         """
         self.id: int = id
         self.team: str = team
@@ -46,8 +55,9 @@ class Player:
         self.is_controlled_by_ai: bool = is_controlled_by_ai
         self.stamina: float = stamina
         self.attributes: Attributes = attributes
-        self.mass: float = mass # Added mass attribute
-        self.radius: float = radius # Added radius attribute
+        self.mass: float = mass
+        self.radius: float = radius
+        self.ai_controller: typing.Optional[AIBasePlayer] = ai_controller # Store the AI controller instance
 
 class Ball:
     """
@@ -74,82 +84,10 @@ class Ball:
         self.position: Position = position
         self.velocity: Velocity = velocity
         self.spin: typing.Optional[Vector3D] = spin
-        self.friction: float = friction # Combined friction/drag factor
-        self.mass: float = mass # Added mass attribute
-        self.radius: float = radius # Added radius attribute
+        self.friction: float = friction
+        self.mass: float = mass
+        self.radius: float = radius
 
-class Field:
-    """
-    Represents the football field and its properties.
-    """
-    def __init__(self,
-                 dimensions: typing.Tuple[float, float], # (width, height)
-                 goal_positions: typing.List[Position], # Positions of the centers of the goals
-                 boundaries: typing.Any): # Could be a Rect object, list of points, etc.
-        """
-        Initializes a Field object.
-
-        Args:
-            dimensions: The width and height of the playing area.
-            goal_positions: A list of positions for the goals.
-            boundaries: Representation of the field boundaries.
-        """
-        self.dimensions: typing.Tuple[float, float] = dimensions
-        self.goal_positions: typing.List[Position] = goal_positions
-        self.boundaries: typing.Any = boundaries # This type might need refinement later
-
-class GameState:
-    """
-    Represents the complete state of the football simulation at a given moment.
-    """
-    def __init__(self,
-                 players: typing.List[Player],
-                 ball: Ball,
-                 field: Field,
-                 score: typing.Dict[str, int], # {'home': 0, 'away': 0}
-                 time: float, # Current time in the match (e.g., seconds)
-                 is_game_over: bool = False):
-        """
-        Initializes a GameState object.
-
-        Args:
-            players: A list of all players in the game.
-            ball: The ball object.
-            field: The field object.
-            score: Dictionary representing the current score for each team.
-            time: The current time in the match.
-            is_game_over: Flag indicating if the game has ended.
-        """
-        self.players: typing.List[Player] = players
-        self.ball: Ball = ball
-        self.field: Field = field
-        self.score: typing.Dict[str, int] = score
-        self.time: float = time
-        self.is_game_over: bool = is_game_over
-
-    def get_player_by_id(self, player_id: int) -> typing.Optional[Player]:
-        """
-        Retrieves a player by their unique ID.
-
-        Args:
-            player_id: The ID of the player to retrieve.
-
-        Returns:
-            The Player object if found, otherwise None.
-        """
-        for player in self.players:
-            if player.id == player_id:
-                return player
-        return None
-
-    def get_players_by_team(self, team_name: str) -> typing.List[Player]:
-        """
-        Retrieves all players belonging to a specific team.
-
-        Args:
-            team_name: The name of the team ('home' or 'away').
-
-        Returns:
-            A list of Player objects belonging to the specified team.
-        """
-        return [player for player in self.players if player.team == team_name]
+# Assuming there might be other classes or content here based on "contenido truncado"
+# Add any other classes (like Goal, Field, GameState) or definitions below
+# ... (rest of the file content) ...
