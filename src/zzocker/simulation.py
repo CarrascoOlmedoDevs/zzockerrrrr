@@ -75,28 +75,15 @@ class SimulationManager:
                 self.stop() # Stop simulation on physics error
                 break
 
-            # 6. Update the game state with the result of the physics calculation
-            # This is implicitly done if physics.update_physics modifies self.game_state in place.
-            # 7. Include logic for handling game events (score, fouls, etc.)
-            try:
-                # Assuming GameState has a method to update non-physical state and handle events
-                self.game_state.update_game_state()
-            except Exception as e:
-                print(f"Error during game state update: {e}")
-                self.stop() # Stop simulation on state update error
-                break
+            # Optional: Add visualization or logging steps here
+            # print(f"Time: {self.game_state.current_time:.2f}") # Example logging
 
-            # Check for game end conditions is done by the loop condition
-
-            # Optional: Add a small delay if simulating in real-time for visualization
+            # Optional: Add a small sleep to control simulation speed if needed for visualization
             # time.sleep(self.timestep)
 
-            # Optional: Add logging or state visualization hooks here
-            # print(f"Time: {self.game_state.current_time:.2f}, Score: {self.game_state.score}") # Example logging
-
-        print("Simulation ended.")
-        # Optional: Print final score or game summary
-        # print(f"Final Score: Team 1 - {self.game_state.score[1]}, Team 2 - {self.game_state.score[2]}") # Example
+        print("Simulation finished.")
+        if self.game_state.is_game_over():
+            print(f"Game Over! Winning Team: {self.game_state.get_winning_team()}") # Assuming such a method exists
 
     def stop(self):
         """
@@ -104,3 +91,48 @@ class SimulationManager:
         """
         self._is_running = False
         print("Simulation stopping...")
+
+# Example usage (assuming dummy AI classes and state/physics modules exist)
+if __name__ == "__main__":
+    # Create dummy AI classes for demonstration
+    class DummyAI(player_ai.BaseAI):
+        def get_actions(self, game_state: state.GameState, team_id: int) -> dict:
+            # Return empty actions for simplicity
+            return {}
+
+    # Create dummy state and physics modules/classes for demonstration
+    # These would need actual implementation in state.py and physics.py
+    class DummyGameState:
+        def __init__(self):
+            self.current_time = 0.0
+            self._is_over = False
+
+        def is_game_over(self):
+            # Simulate game ending after 10 seconds
+            if self.current_time >= 10.0:
+                self._is_over = True
+            return self._is_over
+
+        def get_winning_team(self):
+             return "None (Time Limit)" # Example
+
+    class DummyPhysics:
+        @staticmethod
+        def update_physics(game_state: DummyGameState, actions: dict, timestep: float):
+            # Physics does nothing in this dummy example
+            pass
+
+    # Replace actual imports with dummy ones for this example block
+    state = DummyGameState()
+    physics = DummyPhysics()
+    # actions is not used in the dummy physics, but would be needed in a real one
+
+    # Initialize AIs
+    team1_ai_instance = DummyAI()
+    team2_ai_instance = DummyAI()
+
+    # Initialize Simulation Manager
+    sim_manager = SimulationManager(team1_ai_instance, team2_ai_instance, timestep=1/60)
+
+    # Run the simulation
+    sim_manager.run()
